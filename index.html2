@@ -1,0 +1,597 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Smart Virtual Keyboard</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        body {
+            background: #f0f2f5;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 20px;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 1200px;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+            padding: 20px;
+        }
+
+        .display {
+            position: relative;
+            margin-bottom: 20px;
+        }
+
+        #textInput {
+            width: 100%;
+            min-height: 150px;
+            padding: 15px;
+            font-size: 18px;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            resize: vertical;
+            outline: none;
+            transition: border-color 0.3s;
+        }
+
+        #textInput:focus {
+            border-color: #2196F3;
+        }
+
+        .suggestions {
+            position: absolute;
+            bottom: -100px;
+            left: 0;
+            right: 0;
+            background: white;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            display: none;
+            z-index: 10;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+        }
+
+        .suggestion {
+            padding: 10px 15px;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+
+        .suggestion:hover {
+            background: #f5f5f5;
+        }
+
+        .shortcut-info {
+            margin-bottom: 20px;
+            padding: 10px;
+            background: #e8f4f8;
+            border-radius: 8px;
+            font-size: 14px;
+            color: #333;
+        }
+
+        .keyboard {
+            background: #fff;
+            padding: 15px;
+            border-radius: 12px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+
+        .keyboard-row {
+            display: flex;
+            justify-content: center;
+            margin-bottom: 5px;
+        }
+
+        .key {
+            min-width: 45px;
+            height: 45px;
+            margin: 3px;
+            border: none;
+            border-radius: 6px;
+            background: #f8f9fa;
+            font-size: 16px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        .key:hover {
+            background: #e9ecef;
+            transform: translateY(-1px);
+        }
+
+        .key:active {
+            background: #dee2e6;
+            transform: translateY(0);
+            box-shadow: none;
+        }
+
+        .key.special {
+            background: #f1f3f5;
+            color: #495057;
+            min-width: 80px;
+        }
+
+        .key.space {
+            min-width: 250px;
+        }
+
+        .key.shift, .key.caps {
+            background: #e3f2fd;
+        }
+
+        .key.shift.active, .key.caps.active {
+            background: #1976d2;
+            color: white;
+        }
+
+        .special-char-panel {
+            margin-top: 10px;
+            padding: 10px;
+            background: #f8f9fa;
+            border-radius: 8px;
+            display: none;
+        }
+
+        .emoji-panel {
+            margin-top: 10px;
+            padding: 10px;
+            background: #f8f9fa;
+            border-radius: 8px;
+            display: none;
+        }
+
+        .emoji {
+            display: inline-block;
+            font-size: 24px;
+            margin: 5px;
+            cursor: pointer;
+            transition: transform 0.2s;
+        }
+
+        .emoji:hover {
+            transform: scale(1.2);
+        }
+
+        .tools {
+            margin-bottom: 15px;
+            display: flex;
+            gap: 10px;
+        }
+
+        .tool-button {
+            padding: 8px 16px;
+            border: none;
+            border-radius: 6px;
+            background: #e9ecef;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .tool-button:hover {
+            background: #dee2e6;
+        }
+
+        @media (max-width: 768px) {
+            .key {
+                min-width: 35px;
+                height: 35px;
+                font-size: 14px;
+            }
+            
+            .key.special {
+                min-width: 60px;
+            }
+            
+            .key.space {
+                min-width: 180px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="shortcut-info">
+            <strong>Keyboard Shortcuts:</strong> Ctrl+B (Bold), Ctrl+I (Italic), Ctrl+U (Underline), Ctrl+C (Copy), Ctrl+V (Paste)
+        </div>
+        
+        <div class="display">
+            <textarea id="textInput" placeholder="Type something..."></textarea>
+            <div class="suggestions" id="suggestions"></div>
+        </div>
+        
+        <div class="tools">
+            <button class="tool-button" onclick="toggleEmoji()">😀 Emoji</button>
+            <button class="tool-button" onclick="toggleSpecialChar()">★ Special</button>
+            <button class="tool-button" onclick="copyText()">📋 Copy</button>
+            <button class="tool-button" onclick="clearText()">🗑️ Clear</button>
+            <button class="tool-button" onclick="undo()">↩️ Undo</button>
+            <button class="tool-button" onclick="redo()">↪️ Redo</button>
+        </div>
+        
+        <div class="special-char-panel" id="specialCharPanel">
+            <div class="keyboard-row">
+                <button class="key special-char" data-char="!">!</button>
+                <button class="key special-char" data-char="@">@</button>
+                <button class="key special-char" data-char="#">#</button>
+                <button class="key special-char" data-char="$">$</button>
+                <button class="key special-char" data-char="%">%</button>
+                <button class="key special-char" data-char="^">^</button>
+                <button class="key special-char" data-char="&">&</button>
+                <button class="key special-char" data-char="*">*</button>
+                <button class="key special-char" data-char="(">(</button>
+                <button class="key special-char" data-char=")">)</button>
+            </div>
+        </div>
+        
+        <div class="emoji-panel" id="emojiPanel">
+            <div class="emoji" onclick="insertEmoji('😀')">😀</div>
+            <div class="emoji" onclick="insertEmoji('😂')">😂</div>
+            <div class="emoji" onclick="insertEmoji('😍')">😍</div>
+            <div class="emoji" onclick="insertEmoji('🤔')">🤔</div>
+            <div class="emoji" onclick="insertEmoji('😎')">😎</div>
+            <div class="emoji" onclick="insertEmoji('😊')">😊</div>
+            <div class="emoji" onclick="insertEmoji('👍')">👍</div>
+            <div class="emoji" onclick="insertEmoji('❤️')">❤️</div>
+            <div class="emoji" onclick="insertEmoji('🎉')">🎉</div>
+            <div class="emoji" onclick="insertEmoji('🔥')">🔥</div>
+            <div class="emoji" onclick="insertEmoji('🌟')">🌟</div>
+            <div class="emoji" onclick="insertEmoji('🎈')">🎈</div>
+        </div>
+        
+        <div class="keyboard">
+            <div class="keyboard-row">
+                <button class="key" data-key="`">`</button>
+                <button class="key" data-key="1">1</button>
+                <button class="key" data-key="2">2</button>
+                <button class="key" data-key="3">3</button>
+                <button class="key" data-key="4">4</button>
+                <button class="key" data-key="5">5</button>
+                <button class="key" data-key="6">6</button>
+                <button class="key" data-key="7">7</button>
+                <button class="key" data-key="8">8</button>
+                <button class="key" data-key="9">9</button>
+                <button class="key" data-key="0">0</button>
+                <button class="key" data-key="-">-</button>
+                <button class="key" data-key="=">=</button>
+                <button class="key special" data-key="Backspace">⌫</button>
+            </div>
+            <div class="keyboard-row">
+                <button class="key special" data-key="Tab">Tab</button>
+                <button class="key" data-key="q">q</button>
+                <button class="key" data-key="w">w</button>
+                <button class="key" data-key="e">e</button>
+                <button class="key" data-key="r">r</button>
+                <button class="key" data-key="t">t</button>
+                <button class="key" data-key="y">y</button>
+                <button class="key" data-key="u">u</button>
+                <button class="key" data-key="i">i</button>
+                <button class="key" data-key="o">o</button>
+                <button class="key" data-key="p">p</button>
+                <button class="key" data-key="[">[</button>
+                <button class="key" data-key="]">]</button>
+                <button class="key" data-key="\">\</button>
+            </div>
+            <div class="keyboard-row">
+                <button class="key caps special" data-key="CapsLock">Caps Lock</button>
+                <button class="key" data-key="a">a</button>
+                <button class="key" data-key="s">s</button>
+                <button class="key" data-key="d">d</button>
+                <button class="key" data-key="f">f</button>
+                <button class="key" data-key="g">g</button>
+                <button class="key" data-key="h">h</button>
+                <button class="key" data-key="j">j</button>
+                <button class="key" data-key="k">k</button>
+                <button class="key" data-key="l">l</button>
+                <button class="key" data-key=";">;</button>
+                <button class="key" data-key="'">'</button>
+                <button class="key special" data-key="Enter">Enter</button>
+            </div>
+            <div class="keyboard-row">
+                <button class="key shift special" data-key="Shift">Shift</button>
+                <button class="key" data-key="z">z</button>
+                <button class="key" data-key="x">x</button>
+                <button class="key" data-key="c">c</button>
+                <button class="key" data-key="v">v</button>
+                <button class="key" data-key="b">b</button>
+                <button class="key" data-key="n">n</button>
+                <button class="key" data-key="m">m</button>
+                <button class="key" data-key=",">,</button>
+                <button class="key" data-key=".">.</button>
+                <button class="key" data-key="/">/</button>
+                <button class="key shift special" data-key="Shift">Shift</button>
+            </div>
+            <div class="keyboard-row">
+                <button class="key special" data-key="Control">Ctrl</button>
+                <button class="key special" data-key="Alt">Alt</button>
+                <button class="key space" data-key=" ">Space</button>
+                <button class="key special" data-key="Alt">Alt</button>
+                <button class="key special" data-key="Control">Ctrl</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const textInput = document.getElementById('textInput');
+        const suggestionsContainer = document.getElementById('suggestions');
+        const capsKey = document.querySelector('.key.caps');
+        const shiftKeys = document.querySelectorAll('.key.shift');
+        let capsLock = false;
+        let shiftPressed = false;
+        let undoStack = [];
+        let redoStack = [];
+        
+        // Word suggestions data
+        const wordSuggestions = {
+            'hel': ['hello', 'help', 'helm', 'helper'],
+            'the': ['the', 'they', 'their', 'theme', 'these'],
+            'qui': ['quick', 'quiet', 'quite', 'quit', 'quilt'],
+            'prog': ['program', 'programming', 'programmer', 'progress'],
+            'comp': ['computer', 'company', 'complete', 'compare'],
+            'int': ['internet', 'internal', 'interesting', 'interview'],
+            'dev': ['develop', 'developer', 'device', 'development'],
+            'des': ['design', 'desktop', 'description', 'deserve'],
+            'web': ['website', 'webpage', 'webcam', 'webinar'],
+            'app': ['application', 'apple', 'approach', 'appointment']
+        };
+        
+        // Key mappings for shift
+        const shiftKeyMap = {
+            '1': '!', '2': '@', '3': '#', '4': '$', '5': '%',
+            '6': '^', '7': '&', '8': '*', '9': '(', '0': ')',
+            '-': '_', '=': '+', '[': '{', ']': '}', '\\': '|',
+            ';': ':', "'": '"', ',': '<', '.': '>', '/': '?',
+            '`': '~'
+        };
+        
+        function showSuggestions(word) {
+            suggestionsContainer.innerHTML = '';
+            
+            if (word.length < 3) {
+                suggestionsContainer.style.display = 'none';
+                return;
+            }
+            
+            const matchingSuggestions = [];
+            for (const [prefix, suggestions] of Object.entries(wordSuggestions)) {
+                if (word.startsWith(prefix)) {
+                    matchingSuggestions.push(...suggestions);
+                }
+            }
+            
+            if (matchingSuggestions.length > 0) {
+                suggestionsContainer.style.display = 'block';
+                
+                matchingSuggestions.forEach(suggestion => {
+                    const suggestionElement = document.createElement('div');
+                    suggestionElement.className = 'suggestion';
+                    suggestionElement.textContent = suggestion;
+                    suggestionElement.onclick = () => {
+                        completeWord(suggestion);
+                        suggestionsContainer.style.display = 'none';
+                    };
+                    suggestionsContainer.appendChild(suggestionElement);
+                });
+            } else {
+                suggestionsContainer.style.display = 'none';
+            }
+        }
+        
+        function completeWord(suggestion) {
+            const words = textInput.value.split(' ');
+            words[words.length - 1] = suggestion;
+            textInput.value = words.join(' ') + ' ';
+            textInput.focus();
+        }
+        
+        function insertAtCursor(text) {
+            const start = textInput.selectionStart;
+            const end = textInput.selectionEnd;
+            const currentValue = textInput.value;
+            
+            // Save state for undo
+            undoStack.push(currentValue);
+            redoStack = [];
+            
+            const newValue = currentValue.substring(0, start) + text + currentValue.substring(end);
+            textInput.value = newValue;
+            textInput.selectionStart = textInput.selectionEnd = start + text.length;
+            
+            // Check for word suggestions
+            const lastWord = textInput.value.substring(0, textInput.selectionStart).split(' ').pop();
+            showSuggestions(lastWord);
+        }
+        
+        function toggleCapsLock() {
+            capsLock = !capsLock;
+            capsKey.classList.toggle('active', capsLock);
+            updateKeys();
+        }
+        
+        function toggleShift(pressed) {
+            shiftPressed = pressed;
+            shiftKeys.forEach(key => key.classList.toggle('active', shiftPressed));
+            updateKeys();
+        }
+        
+        function updateKeys() {
+            document.querySelectorAll('.key').forEach(key => {
+                const char = key.getAttribute('data-key');
+                if (char && char.length === 1 && /[a-z]/.test(char)) {
+                    if (capsLock || shiftPressed) {
+                        key.textContent = char.toUpperCase();
+                    } else {
+                        key.textContent = char.toLowerCase();
+                    }
+                } else if (shiftPressed && shiftKeyMap[char]) {
+                    key.textContent = shiftKeyMap[char];
+                } else if (char && !key.classList.contains('special')) {
+                    key.textContent = char;
+                }
+            });
+        }
+        
+        function toggleEmoji() {
+            const emojiPanel = document.getElementById('emojiPanel');
+            emojiPanel.style.display = emojiPanel.style.display === 'none' ? 'block' : 'none';
+        }
+        
+        function toggleSpecialChar() {
+            const specialCharPanel = document.getElementById('specialCharPanel');
+            specialCharPanel.style.display = specialCharPanel.style.display === 'none' ? 'block' : 'none';
+        }
+        
+        function insertEmoji(emoji) {
+            insertAtCursor(emoji);
+        }
+        
+        function copyText() {
+            textInput.select();
+            document.execCommand('copy');
+            textInput.setSelectionRange(textInput.value.length, textInput.value.length);
+        }
+        
+        function clearText() {
+            undoStack.push(textInput.value);
+            redoStack = [];
+            textInput.value = '';
+            textInput.focus();
+        }
+        
+        function undo() {
+            if (undoStack.length > 0) {
+                redoStack.push(textInput.value);
+                textInput.value = undoStack.pop();
+                textInput.focus();
+            }
+        }
+        
+        function redo() {
+            if (redoStack.length > 0) {
+                undoStack.push(textInput.value);
+                textInput.value = redoStack.pop();
+                textInput.focus();
+            }
+        }
+        
+        // Event listeners
+        document.querySelectorAll('.key').forEach(key => {
+            key.addEventListener('click', () => {
+                const keyValue = key.getAttribute('data-key');
+                
+                if (keyValue === 'CapsLock') {
+                    toggleCapsLock();
+                    return;
+                }
+                
+                if (keyValue === 'Shift') {
+                    toggleShift(!shiftPressed);
+                    return;
+                }
+                
+                if (keyValue === 'Backspace') {
+                    const start = textInput.selectionStart;
+                    const end = textInput.selectionEnd;
+                    if (start !== end) {
+                        insertAtCursor('');
+                    } else if (start > 0) {
+                        const currentValue = textInput.value;
+                        insertAtCursor('');
+                        textInput.value = currentValue.substring(0, start - 1) + currentValue.substring(start);
+                        textInput.selectionStart = textInput.selectionEnd = start - 1;
+                    }
+                    return;
+                }
+                
+                if (keyValue === 'Enter') {
+                    insertAtCursor('\n');
+                    return;
+                }
+                
+                if (keyValue === 'Tab') {
+                    insertAtCursor('\t');
+                    return;
+                }
+                
+                if (keyValue.length === 1) {
+                    let charToInsert = keyValue;
+                    if (shiftPressed && shiftKeyMap[keyValue]) {
+                        charToInsert = shiftKeyMap[keyValue];
+                    } else if (capsLock || shiftPressed) {
+                        charToInsert = keyValue.toUpperCase();
+                    }
+                    insertAtCursor(charToInsert);
+                    
+                    if (shiftPressed) {
+                        toggleShift(false);
+                    }
+                }
+                
+                textInput.focus();
+            });
+        });
+        
+        document.querySelectorAll('.special-char').forEach(key => {
+            key.addEventListener('click', () => {
+                const char = key.getAttribute('data-char');
+                insertAtCursor(char);
+                textInput.focus();
+            });
+        });
+        
+        // Keyboard shortcuts
+        textInput.addEventListener('keydown', (e) => {
+            if (e.ctrlKey) {
+                switch(e.key.toLowerCase()) {
+                    case 'z':
+                        e.preventDefault();
+                        undo();
+                        break;
+                    case 'y':
+                        e.preventDefault();
+                        redo();
+                        break;
+                    case 'b':
+                        e.preventDefault();
+                        document.execCommand('bold', false, null);
+                        break;
+                    case 'i':
+                        e.preventDefault();
+                        document.execCommand('italic', false, null);
+                        break;
+                    case 'u':
+                        e.preventDefault();
+                        document.execCommand('underline', false, null);
+                        break;
+                }
+            }
+        });
+        
+        // Auto-suggestions on typing
+        textInput.addEventListener('input', () => {
+            const lastWord = textInput.value.substring(0, textInput.selectionStart).split(' ').pop();
+            showSuggestions(lastWord);
+        });
+        
+        // Initialize
+        updateKeys();
+    </script>
+</body>
+</html>
